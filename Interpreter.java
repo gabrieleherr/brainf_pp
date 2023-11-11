@@ -1,7 +1,7 @@
 import java.io.*;
 import java.util.*;
 public class Interpreter{
-    private static int limit = 1024;
+    private static int limit = 100;
     private static short[] memory;
     private static HashMap<String, String> funcMap;
     private static BufferedReader inputReader;
@@ -80,10 +80,11 @@ public class Interpreter{
         }
         buffer.close();
         inputReader = new BufferedReader(new FileReader("test_input.txt"));
-        System.out.println(funcMap);
+        // System.out.println(funcMap);
         memory = new short[limit];
         run("mn", 0);
         System.out.println();
+        inputReader.close();
     }
     private static short run(String name, int startindex) throws Exception {
         int cellPointer = startindex;
@@ -101,9 +102,18 @@ public class Interpreter{
                 case '>': cellPointer ++; maxPointer = Math.max(maxPointer, cellPointer); break;
                 case '.': System.out.print((char) memory[cellPointer]); break;
                 case ',': memory[cellPointer] = (short) inputReader.read(); break;
-                case '[': jumpIndexes.add(codePointer); break;
+                case '[': 
+                if (memory[cellPointer] == 0){
+                    while (operations.charAt(codePointer) != ']'){
+                        codePointer ++;
+                    }
+                }
+                else{
+                    jumpIndexes.add(codePointer); 
+                }
+                break;
                 case ']': 
-                if (memory[cellPointer] != 0) codePointer = jumpIndexes.peek() - 1;
+                if (memory[cellPointer] != 0) codePointer = jumpIndexes.peek();
                 else jumpIndexes.pop();
                 break;
                 // function name
@@ -112,6 +122,7 @@ public class Interpreter{
                     System.out.println("ERROR: cell index out of bounds on function call");
                     return -1;
                 }
+                while (maxPointer >= 0 && memory[maxPointer] == 0) maxPointer --;
                 memory[maxPointer + 1] = memory[cellPointer];
                 memory[cellPointer] = run(operations.substring(codePointer, codePointer + 2), maxPointer + 1);
                 codePointer ++;
@@ -120,6 +131,7 @@ public class Interpreter{
             }
             codePointer ++;
             if (startindex > cellPointer || cellPointer >= limit){
+                System.out.println(cellPointer);
                 System.out.println("ERROR: cell index out of bounds");
                 return -1;
             }
