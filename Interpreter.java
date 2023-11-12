@@ -1,7 +1,8 @@
 import java.io.*;
 import java.util.*;
 public class Interpreter{
-    private static int limit = 100;
+    private static int limit = 10;
+    private static int global = 5;
     private static short[] memory;
     private static HashMap<String, String> funcMap;
     private static BufferedReader inputReader;
@@ -14,9 +15,7 @@ public class Interpreter{
         boolean infunc = false;
         while(buffer.ready()){
             read = (char) buffer.read();
-            if (Character.isWhitespace(read)){
-                continue;
-            }
+            if (Character.isWhitespace(read)) continue;
             if (read == '{' && !infunc){
                 infunc = true;
                 func = new StringBuilder();
@@ -46,9 +45,7 @@ public class Interpreter{
                 infunc = false;
                 continue;
             }
-            if (!infunc){
-                continue;
-            }
+            if (!infunc) continue;
             if (read == '('){
                 do{
                     read = (char)buffer.read();
@@ -81,8 +78,8 @@ public class Interpreter{
         buffer.close();
         inputReader = new BufferedReader(new FileReader("test_input.txt"));
         // System.out.println(funcMap);
-        memory = new short[limit];
-        run("mn", 0);
+        memory = new short[limit + global];
+        run("mn", global);
         System.out.println();
         inputReader.close();
     }
@@ -91,38 +88,50 @@ public class Interpreter{
         int maxPointer = startindex;
         int codePointer = 0;
         String operations = funcMap.get(name);
-        // System.out.println(name + " " + operations);
         Stack<Integer> jumpIndexes = new Stack<>();
         while (codePointer < operations.length()){
             switch(operations.charAt(codePointer)){
                 case ';': return memory[cellPointer];
                 case '+': memory[cellPointer] ++; break;
                 case '-': memory[cellPointer] --; break;
-                case '<': cellPointer --; break;
-                case '>': cellPointer ++; maxPointer = Math.max(maxPointer, cellPointer); break;
+                case '<': 
+                if (cellPointer == startindex) cellPointer = global;
+                cellPointer --; break;
+                case '>': 
+                if (cellPointer == global - 1) cellPointer = startindex - 1;
+                cellPointer ++; maxPointer = Math.max(maxPointer, cellPointer); break;
                 case '.': System.out.print((char) memory[cellPointer]); break;
-                case ',': memory[cellPointer] = (short) inputReader.read(); break;
+                case ',': 
+                if (!inputReader.ready()) memory[cellPointer] = 0;
+                else memory[cellPointer] = (short) inputReader.read(); 
+                break;
                 case '[': 
                 if (memory[cellPointer] == 0){
-                    while (operations.charAt(codePointer) != ']'){
+                    int runningtotal = 1;
+                    while (runningtotal > 0 && codePointer < operations.length() - 1){
+                        if (operations.charAt(codePointer + 1) == ']') runningtotal --;
+                        else if (operations.charAt(codePointer + 1) == '[') runningtotal ++;
                         codePointer ++;
                     }
+                    if (codePointer == operations.length() - 1){
+                        System.out.println("ERROR: unclosed loop");
+                        return -1;
+                    }
                 }
-                else{
-                    jumpIndexes.add(codePointer); 
-                }
+                else jumpIndexes.add(codePointer); 
                 break;
                 case ']': 
                 if (memory[cellPointer] != 0) codePointer = jumpIndexes.peek();
                 else jumpIndexes.pop();
                 break;
-                // function name
                 default:
+                // function name
+                while (maxPointer >= 0 && memory[maxPointer] == 0) maxPointer --;
+                if (maxPointer < cellPointer) maxPointer = cellPointer;
                 if (maxPointer == limit - 1){
                     System.out.println("ERROR: cell index out of bounds on function call");
                     return -1;
                 }
-                while (maxPointer >= 0 && memory[maxPointer] == 0) maxPointer --;
                 memory[maxPointer + 1] = memory[cellPointer];
                 memory[cellPointer] = run(operations.substring(codePointer, codePointer + 2), maxPointer + 1);
                 codePointer ++;
@@ -130,7 +139,7 @@ public class Interpreter{
                 for (int x = maxPointer + 1; x < limit; x ++) memory[x] = 0;
             }
             codePointer ++;
-            if (startindex > cellPointer || cellPointer >= limit){
+            if (0 > cellPointer || cellPointer >= limit){
                 System.out.println(cellPointer);
                 System.out.println("ERROR: cell index out of bounds");
                 return -1;
